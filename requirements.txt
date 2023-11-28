@@ -1,0 +1,9 @@
+streamlit==1.27.2
+matplotlib
+seaborn
+pandas
+numpy
+streamlit-keyup
+re
+plotly
+math
