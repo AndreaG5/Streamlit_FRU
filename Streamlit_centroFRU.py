@@ -329,7 +329,7 @@ if oas_file is not None:
                 fig.update_layout(uniformtext=dict(minsize=5))  # , mode='hide'
                 fig.update_layout(title_font_color="black", title_font_size=32)
                 fig.update_traces(insidetextorientation='horizontal')
-                fig.update_layout(title_text=f'<b>ESAMI PATOLOGICI</b>\nN_tot={}')  # , title_x=0.2
+                fig.update_layout(title_text=f'<b>ESAMI PATOLOGICI</b>\nN_tot={len(data_2)}')  # , title_x=0.2
                 st.plotly_chart(fig)
 
 
