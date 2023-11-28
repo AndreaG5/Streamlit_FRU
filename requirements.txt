@@ -4,6 +4,5 @@ seaborn
 pandas
 numpy
 streamlit-keyup
-re
 plotly
 math
