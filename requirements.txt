@@ -1,9 +1,9 @@
-streamlit==1.27.2
+streamlit==1.28.0
 matplotlib
 seaborn
 pandas
 numpy
 streamlit-keyup
-re==2.2.1
+re
 plotly
 math
