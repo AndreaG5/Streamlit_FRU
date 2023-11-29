@@ -6,6 +6,7 @@ import streamlit as st
 import re
 from matplotlib.patches import ConnectionPatch
 import plotly.express as px
+from st_keyup import st_keyup
 
 
 # Store the initial value of widgets in session state
@@ -28,7 +29,7 @@ if oas_file is not None:
         #@st.cache_data
         data=pd.read_excel(oas_file, sheet_name="tot")
         data = data[data.columns[:-6]]
-        data.rename(columns={'Unnamed: 2':'Names','altri test genetici': 'Others'}, inplace=True)
+        data.rename(columns={'Unnamed: 2':'Names','altri test genetici': 'Others', 'Unnamed: 20':'Notes'}, inplace=True)
         data['Cariotipo_num'] = pd.Series(np.where(data.Cariotipo.values == 'si', 1, 0), data.index)
         data['FRAXA_num'] = pd.Series(np.where(data.FRAXA.values == 'si', 1, 0), data.index)
         data['Others_num'] = pd.Series(np.where(data['Others'].values == 'si', 1, 0), data.index)
@@ -44,6 +45,8 @@ if oas_file is not None:
         data.FAM = [e.strip(' ') for e in data.FAM]
         data['FamHis_Exams'] = np.where((data.INF == 'x') & (data.FAM == 'x'), 'INF_FAM', np.where((data.INF == 'x') & (data.FAM == 'A'), 'INF_noFAM',
                                          np.where((data.INF == 'A') & (data.FAM == 'x'), 'FAM_noINF', 'NA')))
+        data['INF'].replace('A', np.nan, inplace=True)
+        data['FAM'].replace('A', np.nan, inplace=True)
         ################################
         on = st.toggle('Show input dataframe')
         if on:
@@ -82,7 +85,7 @@ if oas_file is not None:
                 ############# 2 Q.ty prescribed exams (Caryo, FRAXA, Other) divided by fam history or No fam history but alterated exams #####################
 
                 if graph_option == "Quantità esami prescritti":
-                        tot = data[data.tot_prescribed_exams_num != 0].groupby("FamHis_Exams").count()["tot_prescribed_exams_num"].sum()
+                        tot = data[data.tot_prescribed_exams_num != 0].groupby("FamHis_Exams").sum()["tot_prescribed_exams_num"].sum()
                         fig, ax = plt.subplots(figsize=(12, 10))
                         ax.pie(data[data.tot_prescribed_exams_num != 0].groupby("FamHis_Exams").sum()["tot_prescribed_exams_num"],
                                autopct=lambda p: "{:.1f}%\n(N={:.0f})".format(p, p / 100 * tot),
@@ -91,6 +94,10 @@ if oas_file is not None:
                                textprops={'size': 'medium', 'weight': 'bold'}, wedgeprops={'edgecolor': 'white'})
                         ax.set_title(f"Number of prescribed exams according to criteria\nN_tot_prescribed={tot}", fontsize=15)
                         st.pyplot(fig) #colors=['darkcyan', 'darkred'],
+
+                        up = st.toggle('Show input dataframe', key="2")
+                        if up:
+                                st.dataframe(data[data.tot_prescribed_exams_num != 0].reset_index().drop(columns=['index']))
 
                 ##############################################################################################################################################
 
@@ -162,6 +169,10 @@ if oas_file is not None:
                         con.set_linewidth(1)
                         st.pyplot(fig)
 
+                        up = st.toggle('Show input dataframe', key="3")
+                        if up:
+                                st.dataframe(exams.reset_index().drop(columns=['index']))
+
                         del angle, ax1, ax2, center, con, explode, fig, r, theta1, theta2, width, x, y, n_sub, totale_prescritti_pos
 
                 ##############################################################################################################################################
@@ -183,6 +194,9 @@ if oas_file is not None:
                                                textprops={'size': 'medium', 'weight': 'bold'}, wedgeprops={'edgecolor': 'white'})
                                         ax.set_title(f"Distribution of altered exams in {chosen} only\nN_tot_subject={len(male[male.esami_alterati != ''])}", fontsize=15)
                                         st.pyplot(fig)
+                                        up = st.toggle('Show input dataframe', key="4_M")
+                                        if up:
+                                                st.dataframe(male[male.esami_alterati != ''].reset_index().drop(columns="index"))
                                 elif chosen == "Female":
                                         female = data[data['sex'] == "F"]
                                         fig, ax = plt.subplots(figsize=(12, 10))
@@ -196,6 +210,9 @@ if oas_file is not None:
                                                 f"Distribution of altered exams in {chosen} only\nN_tot_subject={len(female[female.esami_alterati != ''])}",
                                                 fontsize=15)
                                         st.pyplot(fig)
+                                        up = st.toggle('Show input dataframe', key="4_F")
+                                        if up:
+                                                st.dataframe(female[female.esami_alterati != ''].reset_index().drop(columns="index"))
 
                 ##############################################################################################################################################
 
@@ -237,6 +254,10 @@ if oas_file is not None:
                                         pct_label.set_text('')
                         st.pyplot(fig)
 
+                        up = st.toggle('Show input dataframe', key="5")
+                        if up:
+                                st.dataframe(famHis.reset_index().drop(columns="index"))
+
                         del threshold, pct_label, wedges, autotexts, texts, pct_value, label
 
                 ########################################### 5 number of changes (i.e. "alt" in exams) per couple #############################################
@@ -265,6 +286,10 @@ if oas_file is not None:
                                textprops={'size': 'medium', 'weight': 'bold'}, wedgeprops={'edgecolor': 'white'})
                         ax.set_title(f"Number of results per couple\nN_tot={math.floor(len(tot_couple) / 2)}", fontsize=15)
                         st.pyplot(fig)
+
+                        up = st.toggle('Show input dataframe', key="5")
+                        if up:
+                                st.dataframe(tot_couple.reset_index().drop(columns="index"))
 
                         del tot_couple, couple, couple_df, coup_numb, get_index_coup, no_changed_coup
 
@@ -398,37 +423,68 @@ if oas_file is not None:
                         st.plotly_chart(fig)
 
         with tab2:
-                st.write("Need 2 implement")
+                #st.write("Need 2 implement")
 
+                st.title("Filter db")
+                filter_option = st.selectbox('Select variable for subset:',
+                                            ("Name", "Spermiogramma", "Esami ormonali", "Risultati alterazioni", "Reason of enrollement",
+                                             "Type of alteration", "Other tests - What?", "Notes"))
 
+                if filter_option == "Name":
+                        st.write("Please insert your:", filter_option)
+                        selection = st_keyup("Enter input")
+                        selection = selection.lower()
+                        st.write(data[data["Names"].str.contains(selection)])
+                elif filter_option == "Spermiogramma":
+                        sperm_alter = data[data["spermiogramma"] != '']['spermiogramma'].unique()
+                        sce_spe = st.multiselect(label="Select alteration:", options=sperm_alter)
+                        st.write('**N.B. blank removed (i.e. no alteration)**')
+                        st.write(data[data.spermiogramma.isin(sce_spe)])
+                        del sperm_alter, sce_spe
+                elif filter_option == "Esami ormonali":
+                        orm_alter = data[data["esami ormonali"] != '']['esami ormonali'].unique()
+                        sce_orm = st.multiselect(label="Select alteration:", options=orm_alter)
+                        st.write('**N.B. blank removed (i.e. no alteration)**')
+                        st.write(data[data['esami ormonali'].isin(sce_orm)])
+                        del orm_alter, sce_orm
+                elif filter_option == "Risultati alterazioni":
+                        st.write("Please insert your alteration")
+                        mut = st_keyup("Enter input")
+                        simplified_data = data.copy()
+                        simplified_data.dropna(subset=['alt'], inplace=True)
+                        simplified_data = simplified_data.reset_index().drop(columns='index')
+                        st.write("**It is case-sensitive, so be sure on what you type**")
+                        st.write("Non-altered entries are removed by default")
+                        st.write(simplified_data[simplified_data.alt.str.contains(mut)])
+                        del simplified_data, mut
+                elif filter_option == "Reason of enrollement":
+                        reas_y = data[data.FamHis_Exams != 'NA']['FamHis_Exams'].unique()
+                        sce_reas = st.multiselect(label="Select reason of enrollement:", options=reas_y)
+                        st.write('**N.B. blank removed (i.e. no alteration)**')
+                        st.write(data[data['FamHis_Exams'].isin(sce_reas)])
+                        del reas_y, sce_reas
+                elif filter_option == "Type of alteration":
+                        famHis = data[data['FamHis_Exams'] == "FAM_noINF"]
+                        col2mod = ['DI/DS/AUT', 'MALF', 'MP', 'PA']
+                        for c in col2mod:
+                                famHis[c].fillna('', inplace=True)
 
+                        famHis['FamHistory'] = famHis['DI/DS/AUT'].astype(str) + "+" + famHis['MALF'].astype(str) + "+" + famHis['MP'].astype(
+                                str) + "+" + famHis['PA'].astype(str)
 
-
-##############################################################################################################################################
-##############################################################################################################################################
-##############################################################################################################################################
-##############################################################################################################################################
-##############################################################################################################################################
-##############################################################################################################################################
-##############################################################################################################################################
-##############################################################################################################################################
-
-coppie = pd.DataFrame()
-
-unici_coppia = data.num.unique()
-for u in unici_coppia:
-        tmp = data[data.num == u]
-        if tmp.FamHis_Exams[tmp.FamHis_Exams.index[0]] == 'NA' and tmp.FamHis_Exams[tmp.FamHis_Exams.index[1]] == 'NA':
-                coppie = pd.concat([coppie, tmp], axis=0)
-        else:
-                next
-
-
-
-
-
-
-
-
-
+                        famHis.FamHistory = [e.lstrip('^+') for e in famHis.FamHistory]
+                        famHis.FamHistory = [e.rstrip(r'+$') for e in famHis.FamHistory]
+                        famHis.FamHistory = [re.sub(r'\++', '+', e) for e in famHis.FamHistory]
+                        famHis.FamHistory.replace('', 'Altro', inplace=True)
+                        typeofex = famHis[famHis.FamHistory != 'NA']['FamHistory'].unique()
+                        sce_typeofex = st.multiselect(label="Select type of alteration in those with family history:", options=typeofex)
+                        st.write('**N.B. blank removed (i.e. no family history)**')
+                        st.write(famHis[famHis.FamHistory.isin(sce_typeofex)].reset_index().drop(columns='index'))
+                        del famHis, typeofex, sce_typeofex, col2mod, c
+                elif filter_option == "Other tests - What?":
+                        st.write('**N.B. blank removed (i.e. no other tests)**')
+                        st.write(data[~data.quali.isna()])
+                else:
+                        st.write('**N.B. blank removed (i.e. no Notes)**')
+                        st.write(data[~data.Notes.isna()])
 
