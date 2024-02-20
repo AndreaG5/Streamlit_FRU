@@ -227,7 +227,6 @@ if oas_file is not None:
                                         if up:
                                                 st.dataframe(female[female.esami_alterati != ''].reset_index().drop(columns="index"))
 
-
                 ##############################################################################################################################################
 
                 #################################### 4 Percentage of DI/DS/MALF etc. by FAM history but examination okay #####################################
@@ -342,7 +341,7 @@ if oas_file is not None:
                                 new_ex_M = new_ex_M[new_ex_M['prescribed_exams'] == "Karyotype"]
 
                                 new_ex_karyo = new_ex[new_ex['Cariotipo'] == "Karyotype"]
-                                new_ex_karyo.dropna(subset=["FamHis_Exams"], inplace=True)
+                                new_ex_karyo = new_ex_karyo[new_ex_karyo['FamHis_Exams']!="NA"]
                                 karyo_sunburst = new_ex_karyo.groupby(['FamHis_Exams', 'sex']).count().reset_index()
 
                                 if chosen == "All":
