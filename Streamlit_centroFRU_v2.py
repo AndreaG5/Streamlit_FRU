@@ -20,8 +20,8 @@ if "visibility" not in st.session_state:
 
 st.title("CentroFRU")
 #@st.cache
-st.write("Use your own XLSX!")
-oas_file = st.file_uploader(label="Upload an XLSX",type=["xlsx"],accept_multiple_files=False)
+        st.write("Use your own XLSX!")
+        oas_file = st.file_uploader(label="Upload an XLSX",type=["xlsx"],accept_multiple_files=False)
 #def decode_uploaded_file(oas_file: UploadedFile) -> str:
 #    return oas_file.read().decode()
 #raw_oas = decode_uploaded_file(oas_file) --> to show raw data (code)
@@ -29,11 +29,18 @@ if oas_file is not None:
         #@st.cache_data
         data=pd.read_excel(oas_file, sheet_name="tot")
         data = data[data.columns[:-6]]
-        data.rename(columns={'Unnamed: 2':'Names','altri test genetici': 'Others', 'Unnamed: 20':'Notes'}, inplace=True)
+        data.rename(columns={'Unnamed: 3':'Names','altri test genetici': 'Others', 'Unnamed: 25':'Notes',
+                             'Risultato':'Karyo_res','Risultato.1':'microdel_res','Risultato.2':'FRAXA_res','Risultato.3':'Others_res'}, inplace=True)
         data['Cariotipo_num'] = pd.Series(np.where(data.Cariotipo.values == 'si', 1, 0), data.index)
+        data['microdel_Y_num'] = pd.Series(np.where(data['microdel Y'].values == 'si', 1, 0), data.index)
         data['FRAXA_num'] = pd.Series(np.where(data.FRAXA.values == 'si', 1, 0), data.index)
         data['Others_num'] = pd.Series(np.where(data['Others'].values == 'si', 1, 0), data.index)
-        data['tot_prescribed_exams_num'] = data['Cariotipo_num'] + data['FRAXA_num'] + data['Others_num']
+        data['tot_prescribed_exams_num'] = data['Cariotipo_num'] + data['FRAXA_num'] + data['Others_num'] + data['microdel_Y_num']
+        data['Karyo_res_num'] = pd.Series(np.where(data.Karyo_res.values == 'alt', 1, 0), data.index)
+        data['microdel_res_num'] = pd.Series(np.where(data['microdel_res'].values == 'alt', 1, 0), data.index)
+        data['FRAXA_res_num'] = pd.Series(np.where(data.FRAXA_res.values == 'alt', 1, 0), data.index)
+        data['Others_res_num'] = pd.Series(np.where(data['Others_res'].values == 'alt', 1, 0), data.index)
+        data['tot_alterate_exams_num'] = data['Karyo_res_num'] + data['microdel_res_num'] + data['FRAXA_res_num'] + data['Others_res_num']
         data['spermiogramma'].replace(np.nan, '', inplace=True)
         data['esami ormonali'].replace(np.nan, '', inplace=True)
         data['esami_alterati'] = data['spermiogramma'] + data['esami ormonali']
@@ -85,11 +92,11 @@ if oas_file is not None:
                 ############# 2 Q.ty prescribed exams (Caryo, FRAXA, Other) divided by fam history or No fam history but alterated exams #####################
 
                 if graph_option == "Quantità esami prescritti":
-                        tot = data[data.tot_prescribed_exams_num != 0].groupby("FamHis_Exams").sum()["tot_prescribed_exams_num"].sum()
+                        tot = data[data.tot_prescribed_exams_num != 0].groupby("FamHis_Exams")["tot_prescribed_exams_num"].sum().sum()
                         fig, ax = plt.subplots(figsize=(12, 10))
-                        ax.pie(data[data.tot_prescribed_exams_num != 0].groupby("FamHis_Exams").sum()["tot_prescribed_exams_num"],
+                        ax.pie(data[data.tot_prescribed_exams_num != 0].groupby("FamHis_Exams")["tot_prescribed_exams_num"].sum(),
                                autopct=lambda p: "{:.1f}%\n(N={:.0f})".format(p, p / 100 * tot),
-                               labels=data.groupby("FamHis_Exams").sum()["tot_prescribed_exams_num"].index,
+                               labels=data.groupby("FamHis_Exams")["tot_prescribed_exams_num"].sum().index,
                                radius=1, labeldistance=1.2,
                                textprops={'size': 'medium', 'weight': 'bold'}, wedgeprops={'edgecolor': 'white'})
                         ax.set_title(f"Number of prescribed exams according to criteria\nN_tot_prescribed={tot}", fontsize=15)
@@ -103,25 +110,34 @@ if oas_file is not None:
 
                 ############################################## 3 Q.ty "alt" exams / tot (prescritti) #########################################################
 
+
                 if graph_option == "Quantità esami alterati":
-                        data['alt_res'] = ''
-                        data['alt_res'][data['alt'].notna()] = 1
-                        data['alt_res'] = data['alt_res'].fillna(0)
-                        data['alt_res'] = pd.Series(np.where(data.alt_res.values == 1, "positive_res", 'negative_res'), data.index)
-                        exams = data[data['completo'] != "no"]
-                        ### probably needed two nested pie plots - try in chunks
+                        ## --- prove ##
+                        data['alt_res'] = pd.Series(np.where(data['tot_alterate_exams_num'].values == 0, 'negative_res', 'positive_res'))
+                        for_Res = data[data.COMPLETO != "no"]
+                        for_Res = for_Res.groupby('alt_res')[['tot_alterate_exams_num', "tot_prescribed_exams_num"]].sum()
+                        for_Res.loc['negative_res', 'tot_alterate_exams_num'] = for_Res['tot_prescribed_exams_num'].sum() - for_Res.loc['positive_res', 'tot_alterate_exams_num']
+                        for_Res.drop(columns='tot_prescribed_exams_num', inplace=True)
                         # first edit df to get col q/ unique exams
-                        totale_prescritti_pos = exams[exams.alt_res == "positive_res"]['tot_prescribed_exams_num'].sum()
-                        exams['Cariotipo'] = pd.Series(np.where(exams.Cariotipo.values == 'si', "Karyotype", ''), exams.index)
-                        exams['FRAXA'] = pd.Series(np.where(exams.FRAXA.values == 'si', "FRAXA", ''), exams.index)
-                        exams['Others'] = pd.Series(np.where(exams.Others.values == 'si', "Others", ''), exams.index)
-                        exams['prescribed_exams'] = exams['Cariotipo'].astype(str) + "-" + exams['FRAXA'].astype(str) + "-" + exams['Others'].astype(str)
-                        exams=exams[exams.tot_prescribed_exams_num !=0]
+                        totale_prescritti_pos = data[data.alt_res == "positive_res"]['tot_prescribed_exams_num'].sum()
+                        data['Cariotipo'] = pd.Series(np.where(data.Cariotipo.values == 'si', "Karyotype", ''), data.index)
+                        data['microdel Y'] = pd.Series(np.where(data['microdel Y'].values == 'si', "microdelY", ''), data.index)
+                        data['FRAXA'] = pd.Series(np.where(data.FRAXA.values == 'si', "FRAXA", ''), data.index)
+                        data['Others'] = pd.Series(np.where(data.Others.values == 'si', "Others", ''), data.index)
+                        data['prescribed_exams'] = data['Cariotipo'].astype(str) + "-" + data['microdel Y'].astype(str) + "-" + data['FRAXA'].astype(str)+ "-" + data['Others'].astype(str)
+                        exams=data[data.tot_prescribed_exams_num !=0]
                         # exams['prescribed_exams'].unique()
-                        exams.prescribed_exams = [re.sub('--', '-', e) for e in exams.prescribed_exams]
+                        exams.prescribed_exams = [re.sub('-+', '-', e) for e in exams.prescribed_exams]
                         exams.prescribed_exams = [re.sub(r'^-', '', e) for e in exams.prescribed_exams]
                         exams.prescribed_exams = [re.sub(r'-$', '', e) for e in exams.prescribed_exams]
                         exams.prescribed_exams.replace('', np.nan, inplace=True)
+                        #for_POS = exams[exams.alt_res=="positive_res"].groupby('prescribed_exams').sum()[['tot_prescribed_exams_num','tot_alterate_exams_num']]
+                        for_POS = exams[exams.alt_res == "positive_res"]
+                        new_POS = pd.DataFrame(index=['Cariotipo', 'microdel_Y', 'FRAXA', 'Others'], columns=['N_exams'])
+                        new_POS.at['Cariotipo', 'N_exams'] = for_POS['Karyo_res_num'].sum()
+                        new_POS.at['microdel_Y', 'N_exams'] = for_POS['microdel_res_num'].sum()
+                        new_POS.at['FRAXA', 'N_exams'] = for_POS['FRAXA_res_num'].sum()
+                        new_POS.at['Others', 'N_exams'] = for_POS['Others_res_num'].sum()
 
                         fig = plt.figure(figsize=(10.79, 6.075))
                         ax1 = fig.add_subplot(121)
@@ -129,18 +145,17 @@ if oas_file is not None:
                         fig.subplots_adjust(wspace=0)
                         explode = [0.05, 0]
                         # rotate so that first wedge is split by the x-axis
-                        angle = 180 * 0.0825
-                        ax1.pie(exams.groupby("alt_res").count()["sex"], ######## USE THE COLUMN WITH MORE VALUES IN THIS CASE IS SEX
-                                autopct=lambda p: "{:.1f}%\n(N={:.0f})".format(p, p / 100 * exams.groupby("alt_res").sum()['tot_prescribed_exams_num'].sum()),
+                        angle = 180 * 0.0525  #0.0825
+                        ax1.pie(for_Res["tot_alterate_exams_num"], ######## USE THE COLUMN WITH MORE VALUES IN THIS CASE IS SEX
+                                autopct=lambda p: "{:.1f}%\n(N={:.0f})".format(p, p / 100 * for_Res["tot_alterate_exams_num"].sum()),
                                 startangle=angle,
-                                labels=exams.groupby("alt_res").count()["num"].index, explode=explode,
+                                labels=for_Res["tot_alterate_exams_num"].index, explode=explode,
                                 textprops={'size': 'medium', 'weight': 'bold'},
-                                colors=['darkcyan', 'darkred'],
-                                labeldistance=1.05)
+                                labeldistance=1.05,colors=['darkcyan', 'darkred'])
                         width = .2
-                        ax2.pie(exams[exams.alt_res == "positive_res"].groupby('prescribed_exams').count()['sex'],
-                                autopct=lambda p: "{:.1f}%\n(N={:.0f})".format(p, p / 100 * totale_prescritti_pos) if p > 4 else '',
-                                startangle=angle, labels=exams[exams.alt_res == "positive_res"].groupby('prescribed_exams').count()['sex'].index,
+                        ax2.pie(new_POS['N_exams'],
+                                autopct=lambda p: "{:.1f}%\n(N={:.0f})".format(p, p / 100 * new_POS['N_exams'].sum()) if p > 4 else '',
+                                startangle=angle, labels=new_POS.index,
                                 radius=0.75,
                                 textprops={'size': 'smaller', 'weight': 'bold'},
                                 labeldistance=1.1)
@@ -440,12 +455,18 @@ if oas_file is not None:
                         sce_spe = st.multiselect(label="Select alteration:", options=sperm_alter)
                         st.write('**N.B. blank removed (i.e. no alteration)**')
                         st.write(data[data.spermiogramma.isin(sce_spe)])
+                        st.download_button(label="Download data as CSV",
+                                           data=data[data.spermiogramma.isin(sce_spe)].to_csv(index=False, sep="\t"),
+                                           key="d1", file_name="spermiogramma_filtered.txt")#, mime="text/csv"
                         del sperm_alter, sce_spe
                 elif filter_option == "Esami ormonali":
                         orm_alter = data[data["esami ormonali"] != '']['esami ormonali'].unique()
                         sce_orm = st.multiselect(label="Select alteration:", options=orm_alter)
                         st.write('**N.B. blank removed (i.e. no alteration)**')
                         st.write(data[data['esami ormonali'].isin(sce_orm)])
+                        st.download_button(label="Download data as CSV",
+                                           data=data[data['esami ormonali'].isin(sce_orm)].to_csv(index=False, sep="\t"),
+                                           key="d1", file_name="esami_romonali_filtered.txt")
                         del orm_alter, sce_orm
                 elif filter_option == "Risultati alterazioni":
                         st.write("Please insert your alteration")
@@ -456,12 +477,18 @@ if oas_file is not None:
                         st.write("**It is case-sensitive, so be sure on what you type**")
                         st.write("Non-altered entries are removed by default")
                         st.write(simplified_data[simplified_data.alt.str.contains(mut)])
+                        st.download_button(label="Download data as CSV",
+                                           data=simplified_data[simplified_data.alt.str.contains(mut)].to_csv(index=False, sep="\t"),
+                                           key="d1", file_name="Risultati_alterazioni_filtered.txt")
                         del simplified_data, mut
                 elif filter_option == "Reason of enrollement":
                         reas_y = data[data.FamHis_Exams != 'NA']['FamHis_Exams'].unique()
                         sce_reas = st.multiselect(label="Select reason of enrollement:", options=reas_y)
                         st.write('**N.B. blank removed (i.e. no alteration)**')
                         st.write(data[data['FamHis_Exams'].isin(sce_reas)])
+                        st.download_button(label="Download data as CSV",
+                                           data=data[data['FamHis_Exams'].isin(sce_reas)].to_csv(index=False, sep="\t"),
+                                           key="d1", file_name="Reason_enrollement_filtered.txt")
                         del reas_y, sce_reas
                 elif filter_option == "Type of alteration":
                         famHis = data[data['FamHis_Exams'] == "FAM_noINF"]
@@ -480,6 +507,9 @@ if oas_file is not None:
                         sce_typeofex = st.multiselect(label="Select type of alteration in those with family history:", options=typeofex)
                         st.write('**N.B. blank removed (i.e. no family history)**')
                         st.write(famHis[famHis.FamHistory.isin(sce_typeofex)].reset_index().drop(columns='index'))
+                        st.download_button(label="Download data as CSV",
+                                           data=famHis[famHis.FamHistory.isin(sce_typeofex)].reset_index().drop(columns='index').to_csv(index=False, sep="\t"),
+                                           key="d1", file_name="Type_of_alteration_filtered.txt")
                         del famHis, typeofex, sce_typeofex, col2mod, c
                 elif filter_option == "Other tests - What?":
                         st.write('**N.B. blank removed (i.e. no other tests)**')
