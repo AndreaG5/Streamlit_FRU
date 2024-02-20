@@ -227,7 +227,6 @@ if oas_file is not None:
                                         if up:
                                                 st.dataframe(female[female.esami_alterati != ''].reset_index().drop(columns="index"))
 
-                        del male, female
 
                 ##############################################################################################################################################
 
