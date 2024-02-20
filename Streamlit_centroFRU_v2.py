@@ -20,8 +20,8 @@ if "visibility" not in st.session_state:
 
 st.title("CentroFRU")
 #@st.cache
-        st.write("Use your own XLSX!")
-        oas_file = st.file_uploader(label="Upload an XLSX",type=["xlsx"],accept_multiple_files=False)
+st.write("Use your own XLSX!")
+oas_file = st.file_uploader(label="Upload an XLSX",type=["xlsx"],accept_multiple_files=False)
 #def decode_uploaded_file(oas_file: UploadedFile) -> str:
 #    return oas_file.read().decode()
 #raw_oas = decode_uploaded_file(oas_file) --> to show raw data (code)
