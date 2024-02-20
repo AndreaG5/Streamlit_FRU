@@ -54,6 +54,7 @@ if oas_file is not None:
                                          np.where((data.INF == 'A') & (data.FAM == 'x'), 'FAM_noINF', 'NA')))
         data['INF'].replace('A', np.nan, inplace=True)
         data['FAM'].replace('A', np.nan, inplace=True)
+        data['alt_res'] = pd.Series(np.where(data['tot_alterate_exams_num'].values == 0, 'negative_res', 'positive_res'))
         ################################
         on = st.toggle('Show input dataframe')
         if on:
@@ -110,10 +111,7 @@ if oas_file is not None:
 
                 ############################################## 3 Q.ty "alt" exams / tot (prescritti) #########################################################
 
-
                 if graph_option == "Quantità esami alterati":
-                        ## --- prove ##
-                        data['alt_res'] = pd.Series(np.where(data['tot_alterate_exams_num'].values == 0, 'negative_res', 'positive_res'))
                         for_Res = data[data.COMPLETO != "no"]
                         for_Res = for_Res.groupby('alt_res')[['tot_alterate_exams_num', "tot_prescribed_exams_num"]].sum()
                         for_Res.loc['negative_res', 'tot_alterate_exams_num'] = for_Res['tot_prescribed_exams_num'].sum() - for_Res.loc['positive_res', 'tot_alterate_exams_num']
@@ -229,6 +227,8 @@ if oas_file is not None:
                                         if up:
                                                 st.dataframe(female[female.esami_alterati != ''].reset_index().drop(columns="index"))
 
+                        del male, female
+
                 ##############################################################################################################################################
 
                 #################################### 4 Percentage of DI/DS/MALF etc. by FAM history but examination okay #####################################
@@ -273,7 +273,7 @@ if oas_file is not None:
                         if up:
                                 st.dataframe(famHis.reset_index().drop(columns="index"))
 
-                        del threshold, pct_label, wedges, autotexts, texts, pct_value, label
+                        del threshold, pct_label, wedges, autotexts, texts, pct_value, label, famHis
 
                 ########################################### 5 number of changes (i.e. "alt" in exams) per couple #############################################
 
@@ -281,9 +281,11 @@ if oas_file is not None:
                         import math
 
                         couple = data.copy()
+                        couple['alt_res'] = pd.Series(np.where(couple['tot_alterate_exams_num'].values == 0, 'negative_res', 'positive_res'))
+                        couple = couple[couple.COMPLETO != "no"]
                         # couple['alter'] = couple[['spermiogramma', 'esami ormonali']].isin(['alt']).any(axis=1)
                         # coup_numb = (couple[couple['alter'] == True]).reset_index()
-                        coup_numb = (couple[~couple['alt'].isna()]).reset_index()
+                        coup_numb = couple[couple['alt_res'] != "negative_res"].reset_index()
                         get_index_coup = list(coup_numb['num'])
                         couple_df = couple[couple['num'].isin(get_index_coup)]
                         no_changed_coup = couple[~couple['num'].isin(get_index_coup)]
@@ -319,25 +321,21 @@ if oas_file is not None:
                                                   ("All", "Male", "Female", "FRAXA"))
                                 # st.write(f"You are in {chosen} house!")
                         with right_column:
-
-                                data['alt'][data['alt'].notna()] = 1
-                                data['alt'] = data['alt'].fillna(0)
-                                data['alt'] = pd.Series(np.where(data.alt.values == 1, "positive_res", 'negative_res'), data.index)
-
                                 ### probably needed two nested pie plots - try in chunks
                                 # first edit df to get col q/ unique exams
                                 data['Cariotipo'] = pd.Series(np.where(data.Cariotipo.values == 'si', "Karyotype", ''), data.index)
+                                data['microdel Y'] = pd.Series(np.where(data['microdel Y'].values == 'si', "microdel_Y", ''), data.index)
                                 data['FRAXA'] = pd.Series(np.where(data.FRAXA.values == 'si', "FRAXA", ''), data.index)
                                 data['Others'] = pd.Series(np.where(data.Others.values == 'si', "Others", ''), data.index)
-                                data['prescribed_exams'] = data['Cariotipo'].astype(str) + "-" + data['FRAXA'].astype(str) + "-" + data[
+                                data['prescribed_exams'] = data['Cariotipo'].astype(str) + "-" + data['microdel Y'].astype(str) + "-" + data['FRAXA'].astype(str) + "-" + data[
                                         'Others'].astype(str)
                                 # exams['prescribed_exams'].unique()
-                                data.prescribed_exams = [re.sub('--', '-', e) for e in data.prescribed_exams]
+                                data.prescribed_exams = [re.sub('-+', '-', e) for e in data.prescribed_exams]
                                 data.prescribed_exams = [re.sub(r'^-', '', e) for e in data.prescribed_exams]
                                 data.prescribed_exams = [re.sub(r'-$', '', e) for e in data.prescribed_exams]
                                 data.prescribed_exams.replace('', np.nan, inplace=True)
 
-                                exams = data[data['completo'] != "no"]
+                                exams = data[data['COMPLETO'] != "no"]
                                 new_ex = exams.copy()
                                 new_ex_M = new_ex[new_ex['sex'] == "M"]
                                 new_ex_F = new_ex[new_ex['sex'] == "F"]
